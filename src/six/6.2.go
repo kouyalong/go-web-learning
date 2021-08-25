@@ -14,13 +14,15 @@ import (
 var globalSession *s.Manager
 
 func init() {
-	globalSession, _ := s.NewManager("memory", "go-session-id", 3600)
+	globalSession, _ = s.NewManager("memory", "go-session-id", 3600)
 	go globalSession.GC()
 
+	log.Println(globalSession)
 }
 
 
-func Login(w http.ResponseWriter, r *http.Request) {
+func login(w http.ResponseWriter, r *http.Request) {
+	log.Println(globalSession)
 	session := globalSession.SessionStart(w, r)
 	r.ParseForm()
 	if r.Method == "GET" {
@@ -33,7 +35,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func Count(w http.ResponseWriter, r *http.Request) {
+func count(w http.ResponseWriter, r *http.Request) {
 	sess := globalSession.SessionStart(w, r)
 	createTime := sess.Get("create-time")
 	if createTime == nil {
@@ -57,8 +59,8 @@ func Count(w http.ResponseWriter, r *http.Request) {
 
 
 func main() {
-	http.HandleFunc("/login", Login)
-	http.HandleFunc("/count", Count)
+	http.HandleFunc("/login", login)
+	http.HandleFunc("/count", count)
 
 	err := http.ListenAndServe(":9099", nil)
 	if err != nil {

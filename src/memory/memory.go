@@ -98,7 +98,7 @@ func (pDer *ProviderN) SessionGC(maxLifeTime int64) {
 }
 
 func (pDer *ProviderN) SessionUpdate(sid string) error {
-	pDer.lock.Unlock()
+	pDer.lock.Lock()
 	defer pDer.lock.Unlock()
 
 	if element, ok := pDer.sessions[sid]; ok {
@@ -111,6 +111,11 @@ func (pDer *ProviderN) SessionUpdate(sid string) error {
 
 
 func init() {
+
 	pDer.sessions = make(map[string]*list.Element, 0)
 	session.Register("memory", pDer)
+	//
+	//globalSession, _ := session.NewManager("memory", "go-session-id", 3600)
+	//go globalSession.GC()
+
 }

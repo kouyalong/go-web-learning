@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<servers version="1">
+    <server>
+        <serverName>ShanghaiVPN</serverName>
+        <serverIP>127.0.0.1</serverIP>
+    </server>
+    <server>
+        <serverName>BeijingVPN</serverName>
+        <serverIP>127.0.0.2</serverIP>
+    </server>
+</servers>
+

@@ -53,7 +53,7 @@ func Register(name string, provider Provider) {
 	providers[name] = provider
 }
 
-func (manager *Manager) sessionId() string {
+func (manager *Manager) SessionId() string {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
 		return ""
@@ -68,7 +68,7 @@ func (manager *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (se
 
 	cookie, err := r.Cookie(manager.cookieName)
 	if err != nil || cookie.Value == "" {
-		sid := manager.sessionId()
+		sid := manager.SessionId()
 		session, _ = manager.provider.SessionInit(sid)
 		cookie := http.Cookie{Name: manager.cookieName, Value: url.QueryEscape(sid), Path: "/", HttpOnly: true, MaxAge: int(manager.maxLifeTime)}
 		http.SetCookie(w, &cookie)
@@ -86,6 +86,7 @@ func (manager *Manager) SessionDestroy(w http.ResponseWriter, r *http.Request) {
 	} else {
 		manager.lock.Lock()
 		defer manager.lock.Unlock()
+
 		manager.provider.SessionDestroy(cookie.Value)
 		expiration := time.Now()
 		cookie := http.Cookie{Name: manager.cookieName, Path: "/", HttpOnly: true, Expires: expiration, MaxAge: -1}
