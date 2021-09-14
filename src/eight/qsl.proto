@@ -1,0 +1,207 @@
+syntax = "proto3";
+option go_package = "./protos";
+import "google/protobuf/struct.proto";
+
+// 生成代码 python -m grpc_tools.protoc -I/data/app/r2/insight_r2_engine/ --python_out=. --grpc_python_out=. r2/api/protos/qsl_engine.proto
+// 引擎服务
+service QSLEngine{
+  // 异步接口
+  rpc Query(SearchRequest) returns (SearchResponse){};  // 基础查询
+  rpc GetStatus(StatusRequest) returns (StatusResponse){}; // 状态查询
+  rpc GetResult(ResultRequest) returns (ResultResponse){}; // 结果查询(支持翻页和排序)
+  rpc Terminate(TerminateRequest) returns(TerminateResponse){};  // 任务终止接口
+  rpc GetFields(FieldRequest) returns (FieldResponse){}// 表头字段类型
+
+  rpc GroupCount(SearchRequest) returns (GroupCountResponse){};  // 分组统计
+  rpc SimpleQuery(SearchRequest) returns (SyncResponse){} // 简单查询接口,不支持管道，直接返回结果
+
+  rpc GetSourceConfig(SourceConfigRequest) returns (SourceConfigResponse){} // 获取数据源配置的接口
+  rpc GetShowInfo(ShowRequest) returns (ShowResponse){}  // 语法推荐前置信息获取接口
+}
+
+enum LogType{
+  UNKNOWN = 0;
+  PROC_CREATE = 1;
+  NET_CONNECT = 2;
+  SHELL_LOG = 3;
+  ACCESS_LOG = 4;
+  ACCOUNT_CHANGE = 5;
+  SCRIPT_EXEC = 6;
+  DNS_ACCESS = 7;
+}
+
+message SearchRequest{
+  enum QueryType{
+    UNKNOWN = 0;
+    SIMPLE = 1;// 简单
+    COMPLEX = 2;// 复合
+    ADVANCED = 3;//高级
+  }
+  string app_key = 1; // 应用信息
+  string app_user = 2; // 应用内用户ID，用于区分自定义宏
+  string qsl = 3;// 输入框语句
+
+  int32 timeout = 4;// 超时时间
+  repeated Filter filters = 5;// 过滤条件
+  repeated WhiteListRule whitelist = 6;// 白名单
+  repeated LogType log_scopes = 7;// 日志类型
+  string time_start = 8;//时间范围 只能是简单、复合语句
+  string time_end = 9;//时间范围 只能是简单、复合语句
+  QueryType query_type = 10;//查询类型
+  repeated Order orders = 11; // 默认排序方式，只适用于ES数据源且类型为简单和复合时
+}
+
+message Filter{
+  string field_key = 1;
+  string option_key = 2;
+  repeated string content = 3;
+  Column.Type field_type = 4;
+}
+message WhiteListRule{
+  repeated Filter filters = 1;
+  repeated LogType log_scopes = 2; // ["proc_create","net_connect"]
+}
+
+message SearchResponse{
+  StatusCode status = 1;
+  string job_id = 2;
+}
+
+message SyncResponse{
+  StatusCode status = 1;
+  bytes info = 2;
+}
+
+message StatusRequest{
+  string job_id = 1;
+}
+
+message LogCount {//日志计数
+  LogType log_type = 1;
+  int32 count = 2;
+}
+message GroupCountResponse {
+  StatusCode status = 1;
+  repeated LogCount counts = 2;
+}
+
+
+message StatusResponse{
+  StatusCode status = 1;
+  enum JobStatus{
+    UNKNOWN = 0;
+    INIT = 1;
+    RUNNING = 2;
+    SUCCESS = 3;
+    CANCELED = 4;
+    FAILED = 5;
+    TIMEOUT = 6;
+  }
+  JobStatus job_status = 2;//任务状态
+  int32 total = 3;
+  google.protobuf.Struct details = 4;// 查询任务的内部细节，类型可以确定
+  string message = 5;
+}
+
+message ResultRequest{
+  string job_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+  Order order = 4;
+}
+
+message Order{
+  string key = 1; // 排序的 key
+  string type = 2;  // 排序方式 asc|desc
+}
+
+message ResultResponse{
+  StatusCode status = 1;
+  bytes info = 2;
+  int32 total = 3; //是否需要结果总数
+}
+
+// 响应状态，使用场景：拿到响应后先看 code，如果正常再去读StatusCode以外的其他信息；如果不正常，可以通过 message 和 details 查看不正常的详细说明
+// gRPC 服务的响应状态
+message StatusCode{
+  int32 code = 1;
+  string message = 2;
+  string details = 3;
+}
+
+
+message TerminateRequest{
+  string job_id = 1;
+}
+
+message TerminateResponse{
+  StatusCode status = 1;
+}
+
+
+message FieldRequest{
+  string job_id = 1;
+}
+
+message FieldResponse{
+  repeated Column columns = 1;
+  StatusCode status = 2;
+}
+
+message Column{
+  enum Type{
+    UNKNOWN = 0;
+    STRING = 1;
+    NUMBER = 2;
+    TIME = 3;
+    IP = 4;
+    BOOL = 5;
+  }
+  string field = 1 ;
+  Type type = 2;
+}
+
+message SourceConfigRequest{} //空参数即可
+
+message SourceConfigResponse{
+  string default = 1; //默认数据源
+  repeated DataSourceConfig sources = 2;
+  StatusCode status = 3;
+  string pbe = 4;
+}
+
+message DataSourceConfig{
+  string name = 1;
+  string url = 2;
+  string type = 3;
+  bool wisteria = 4;
+  bool authentication = 5;
+  string username = 6;
+  string password = 7;
+  string default_db = 8;
+  map<string, string> abbreviate = 9;
+  map<string, google.protobuf.ListValue> index_mapping = 10; //https://developers.google.com/protocol-buffers/docs/reference/python-generated#listvalue
+  //  map<string, ListStringValue> index_mapping = 11; 这种方式会多出一层来，很难受
+  //  message ListStringValue{
+  //    repeated string value = 1;
+  //  }
+}
+
+message ShowRequest{
+  enum InfoType{
+    UNKNOWN = 0;
+    CUSTOM_MACRO = 1;//自定义宏
+    SYSTEM_MACRO = 2;//系统宏
+    FUNCTION = 3;//函数
+    ALIAS = 4;//别名
+    USER_TABLE = 5; // 用户自定义表
+  }
+  string app_key = 1; // 应用信息
+  string app_user = 2; // 应用内用户ID，用于区分自定义宏
+  InfoType show_type = 3;// 展示类型等
+}
+
+message ShowResponse{
+  repeated google.protobuf.Struct details = 1;
+  StatusCode status = 2;
+}
